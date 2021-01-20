@@ -1,0 +1,1 @@
+/usr/bin/cc CMakeFiles/logging-daemon.dir/main.c.o -o logging-daemon 
