@@ -13,12 +13,22 @@ string.h
 -
 stdlib.h
 -
+stdbool.h
+-
 unistd.h
+-
+signal.h
+-
+fcntl.h
+-
+errno.h
 -
 sys/un.h
 -
 sys/socket.h
 -
 sys/stat.h
+-
+sys/select.h
 -
 
