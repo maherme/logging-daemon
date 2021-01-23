@@ -27,8 +27,21 @@ static volatile bool loop_cond = true;
 int main(int argc, char *argv[]){
 
     int sockfd = -1;
+    int option = 0;
 
-    if(argc < 2){
+    opterr = 0; /* Avoid getopt writes in stderr */
+
+    while((option = getopt(argc, argv, "f")) != -1){
+        switch(option){
+	    case 'f':
+	        break;
+	    default:
+		fprintf(stderr, "Error: usage is %s [-f] <file0> <file1> ...\n", argv[0]);
+	        exit(-1);
+	}
+    }
+
+    if(argc <= optind){
         perror("Error: missing file or files as an argument");
         exit(-1);
     }
@@ -42,11 +55,11 @@ int main(int argc, char *argv[]){
 
     BindSocketServer(sockfd);
 
-    ReadSocket(sockfd, argc, argv);
+    ReadSocket(sockfd, (argc-optind), argv);
 
     close(sockfd);
 
-    MostRepeatedLog(argv[1]);
+    MostRepeatedLog(argv[optind]);
 
     return 0;
 }
@@ -182,8 +195,8 @@ static int WriteFiles(int number_files, char **files_names, char *buffer){
     int i = 0;
     FILE *filed = NULL;
 
-    for(i = 0; i< (number_files-1); i++){
-        if((filed = fopen(files_names[i+1], "a")) == NULL){
+    for(i = 0; i< number_files; i++){
+        if((filed = fopen(files_names[i+optind], "a")) == NULL){
             perror("Error: failed opening a file");
             ret = -1;
         }
