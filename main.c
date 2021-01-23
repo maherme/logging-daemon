@@ -12,9 +12,11 @@
 #include <sys/select.h>
 
 #define SERVER_PATH "/dev/log"
+#define PID_FILE_PATH "/var/run/logging-daemon.pid"
 #define BUFLEN 1024
 #define DATE_LOG_LEN 20
 
+static int CreatePIDFile(void);
 static int CreateSocket(void);
 static void BindSocketServer(int);
 static void ReadSocket(int, int, char **);
@@ -28,27 +30,44 @@ int main(int argc, char *argv[]){
 
     int sockfd = -1;
     int option = 0;
+    bool fork_flag = false;
+    pid_t rf;
 
     opterr = 0; /* Avoid getopt writes in stderr */
 
     while((option = getopt(argc, argv, "f")) != -1){
         switch(option){
 	    case 'f':
+		fork_flag = true;
 	        break;
 	    default:
 		fprintf(stderr, "Error: usage is %s [-f] <file0> <file1> ...\n", argv[0]);
-	        exit(-1);
+	        exit(EXIT_FAILURE);
 	}
     }
 
     if(argc <= optind){
         perror("Error: missing file or files as an argument");
-        exit(-1);
+        exit(EXIT_FAILURE);
+    }
+
+    if(fork_flag == true){
+        rf = fork();
+	switch(rf){
+	    case -1:
+		perror("Error: fork could not be completed");
+		exit(-1);
+	    case 0:
+                CreatePIDFile();
+		break;
+	    default:
+                exit(EXIT_SUCCESS);
+	}
     }
 
     if(signal(SIGINT, Exception) == SIG_ERR){
         perror("Error: SIGINT subscription failed");
-	exit(-1);
+	exit(EXIT_FAILURE);
     }
 
     sockfd = CreateSocket();
@@ -61,7 +80,35 @@ int main(int argc, char *argv[]){
 
     MostRepeatedLog(argv[optind]);
 
+    if(fork_flag == true){
+	if(remove(PID_FILE_PATH) < 0){
+            fprintf(stderr, "Error: %s could not be deleted", PID_FILE_PATH);
+        }
+    }
+
     return 0;
+}
+
+/* Function to create a file in PID_FILE_PATH.
+ * It writes the PID of the process in the file.
+ * The file name is equal to the process name.
+ *
+ * Return: -1 if an error ocurred, 0 if completed OK.
+ */
+static int CreatePIDFile(void){
+
+    int ret = 0;
+    FILE *filed = NULL;
+
+    if((filed = fopen(PID_FILE_PATH, "w")) == NULL){
+        perror("Error: failed opening a file");
+        ret = -1;
+    }
+    fprintf(filed, "%d", getpid());
+    if(fclose(filed) < 0){
+        perror("Error: failed closing a file");
+        ret = -1;
+    }
 }
 
 /* Function in charge of creating a socket.
@@ -75,13 +122,13 @@ static int CreateSocket(void){
 
     if((sock_addr = socket(AF_UNIX, SOCK_DGRAM, 0)) < 0){
         perror("Error: socket could not be created");
-	exit(-1);
+	exit(EXIT_FAILURE);
     }
 
     if(fcntl(sock_addr, F_SETFL, O_NONBLOCK) < 0){
 	perror("Error: fcntl could not set non blocking operations");
 	close(sock_addr);
-	exit(-1);
+	exit(EXIT_FAILURE);
     }
 
     return sock_addr;
@@ -104,7 +151,7 @@ static void BindSocketServer(int fd){
     if((bind(fd, (struct sockaddr *)&addr, SUN_LEN(&addr))) < 0){
         perror("Error: bind failed");
 	close(fd);
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     chmod(SERVER_PATH, S_IRWXU|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
@@ -141,13 +188,13 @@ static void ReadSocket(int fd, int n_files, char **files_names){
 	if((ret_select < 0) && (errno != EINTR)){
 	    perror("Error: select function return error");
 	    close(fd);
-	    exit(-1);
+	    exit(EXIT_FAILURE);
 	}
 	else if(ret_select > 0){
             if(((len_rec = recvfrom(fd, buf, BUFLEN, 0, (struct sockaddr *)&addr_client, &addr_client_len)) < 0) && (errno != EWOULDBLOCK)){
 	        perror("Error: reception from client");
 		close(fd);
-	        exit(-1);
+	        exit(EXIT_FAILURE);
 	    }
 	    else if(len_rec > 0){
 	        buf[len_rec] = '\n';
@@ -158,7 +205,7 @@ static void ReadSocket(int fd, int n_files, char **files_names){
 		}
 		else{
 		    if(WriteFiles(n_files, files_names, buf) < 0){
-			exit(-1);
+			exit(EXIT_FAILURE);
 		    }
 		}
 		strcpy(buf_old, buf);
@@ -234,20 +281,20 @@ static void MostRepeatedLog(char *file_name){
 
     if((fd = fopen(file_name, "r")) == NULL){
 	perror("Error: failed opening a file");
-	exit(-1);
+	exit(EXIT_FAILURE);
     }
 
     if((temp = fopen("/tmp/temp_log0.log", "w")) == NULL){
 	perror("Error: failed opening a file");
 	fclose(fd);
-	exit(-1);
+	exit(EXIT_FAILURE);
     }
 
     if((temp2 = fopen("/tmp/temp_log1.log", "w")) == NULL){
 	perror("Error: failed opening a file");
 	fclose(fd);
 	fclose(temp);
-	exit(-1);
+	exit(EXIT_FAILURE);
     }
 
     /* Parsing of rows avoiding the date field (DATE_LOG_LEN offset) */
@@ -257,21 +304,21 @@ static void MostRepeatedLog(char *file_name){
 
     if((fclose(fd) < 0) || (fclose(temp) < 0) || (fclose(temp2) < 0)){
 	perror("Error: failed closing a file");
-	exit(-1);
+	exit(EXIT_FAILURE);
     }
 
     if(system("sort -k 2 /tmp/temp_log1.log > /tmp/temp_log0.log") < 0){
 	perror("Error: system call failed");
-	exit(-1);
+	exit(EXIT_FAILURE);
     }
 
     if(remove("/tmp/temp_log1.log") < 0){
-        perror("Error: /tmp/temp_log1.log can not be deleted");
+        perror("Error: /tmp/temp_log1.log could not be deleted");
     }
 
     if((temp = fopen("/tmp/temp_log0.log", "r")) == NULL){
 	perror("Error: failed opening a file");
-	exit(-1);
+	exit(EXIT_FAILURE);
     }
 
     /* Initiating structure */
@@ -304,11 +351,11 @@ static void MostRepeatedLog(char *file_name){
 
     if(fclose(temp) < 0){
 	perror("Error: failed closing a file");
-	exit(-1);
+	exit(EXIT_FAILURE);
     }
 
     if(remove("/tmp/temp_log0.log") < 0){
-        perror("Error: /tmp/temp_log0.log can not be deleted");
+        perror("Error: /tmp/temp_log0.log could not be deleted");
     }
 
     printf("%d --> %s", log_most_rep.times, log_most_rep.log_message);
