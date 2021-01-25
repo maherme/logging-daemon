@@ -41,13 +41,13 @@ int main(int argc, char *argv[]){
 
     while((option = getopt(argc, argv, "f")) != -1){
         switch(option){
-	    case 'f':
-		fork_flag = true;
-	        break;
-	    default:
-		fprintf(stderr, "Error: usage is %s [-f] <file0> <file1> ...\n", argv[0]);
-	        exit(EXIT_FAILURE);
-	}
+            case 'f':
+                fork_flag = true;
+                break;
+            default:
+                fprintf(stderr, "Error: usage is %s [-f] <file0> <file1> ...\n", argv[0]);
+                exit(EXIT_FAILURE);
+        }
     }
 
     if(argc <= optind){
@@ -57,21 +57,21 @@ int main(int argc, char *argv[]){
 
     if(fork_flag == true){
         rf = fork();
-	switch(rf){
-	    case -1:
-		perror("Error: fork could not be completed");
-		exit(-1);
-	    case 0:
+        switch(rf){
+            case -1:
+                perror("Error: fork could not be completed");
+                exit(-1);
+            case 0:
                 CreatePIDFile();
-		break;
-	    default:
+                break;
+            default:
                 exit(EXIT_SUCCESS);
-	}
+        }
     }
 
     if(signal(SIGINT, Exception) == SIG_ERR){
         perror("Error: SIGINT subscription failed");
-	exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
     }
 
     sockfd = CreateSocket();
@@ -85,7 +85,7 @@ int main(int argc, char *argv[]){
     MostRepeatedLog(argv[optind]);
 
     if(fork_flag == true){
-	if(remove(PID_FILE_PATH) < 0){
+        if(remove(PID_FILE_PATH) < 0){
             fprintf(stderr, "Error: %s could not be deleted", PID_FILE_PATH);
         }
     }
@@ -108,7 +108,9 @@ static int CreatePIDFile(void){
         perror("Error: failed opening a file");
         ret = -1;
     }
+
     fprintf(filed, "%d", getpid());
+
     if(fclose(filed) < 0){
         perror("Error: failed closing a file");
         ret = -1;
@@ -126,13 +128,13 @@ static int CreateSocket(void){
 
     if((sock_addr = socket(AF_UNIX, SOCK_DGRAM, 0)) < 0){
         perror("Error: socket could not be created");
-	exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
     }
 
     if(fcntl(sock_addr, F_SETFL, O_NONBLOCK) < 0){
-	perror("Error: fcntl could not set non blocking operations");
-	close(sock_addr);
-	exit(EXIT_FAILURE);
+        perror("Error: fcntl could not set non blocking operations");
+        close(sock_addr);
+        exit(EXIT_FAILURE);
     }
 
     return sock_addr;
@@ -154,7 +156,7 @@ static void BindSocketServer(int fd){
 
     if((bind(fd, (struct sockaddr *)&addr, SUN_LEN(&addr))) < 0){
         perror("Error: bind failed");
-	close(fd);
+        close(fd);
         exit(EXIT_FAILURE);
     }
 
@@ -188,46 +190,47 @@ static void ReadSocket(int fd, int n_files, char **files_names){
 
     while(loop_cond == true){
 
-	ret_select = select(fd+1, &socket_set, NULL, NULL, &timeout);
-	if((ret_select < 0) && (errno != EINTR)){
-	    perror("Error: select function return error");
-	    close(fd);
-	    exit(EXIT_FAILURE);
-	}
-	else if(ret_select > 0){
+        ret_select = select(fd+1, &socket_set, NULL, NULL, &timeout);
+
+        if((ret_select < 0) && (errno != EINTR)){
+            perror("Error: select function return error");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
+        else if(ret_select > 0){
             if(((len_rec = recvfrom(fd, buf, BUFLEN, 0, (struct sockaddr *)&addr_client, &addr_client_len)) < 0) && (errno != EWOULDBLOCK)){
-	        perror("Error: reception from client");
-		close(fd);
-	        exit(EXIT_FAILURE);
-	    }
-	    else if(len_rec > 0){
-	        buf[len_rec] = '\n';
-                printf("%s", buf);
-		/* Avoid duplicated logs */
-		if(strcmp(buf, buf_old) == 0){
-		    printf("Warning: log duplicated\n");
-		}
-		else{
-		    if(WriteFiles(n_files, files_names, buf) < 0){
-			exit(EXIT_FAILURE);
-		    }
-		}
-		strcpy(buf_old, buf);
-		/* Clean buffer before the next usage */
-	        memset(buf, 0, sizeof(buf));
+                perror("Error: reception from client");
+                close(fd);
+                exit(EXIT_FAILURE);
             }
-	    else{
-		/* do nothing */
-	    }
-	    FD_SET(fd, &socket_set);
-	    timeout.tv_sec = TIMEOUT_SEC;
-	    timeout.tv_usec = TIMEOUT_USEC;
-	}
-	else{
-	    FD_SET(fd, &socket_set);
-	    timeout.tv_sec = TIMEOUT_SEC;
-	    timeout.tv_usec = TIMEOUT_USEC;
-	}
+            else if(len_rec > 0){
+                buf[len_rec] = '\n';
+                printf("%s", buf);
+                /* Avoid duplicated logs */
+                if(strcmp(buf, buf_old) == 0){
+                    printf("Warning: log duplicated\n");
+                }
+                else{
+                    if(WriteFiles(n_files, files_names, buf) < 0){
+                        exit(EXIT_FAILURE);
+                    }
+                }
+                strcpy(buf_old, buf);
+                /* Clean buffer before the next usage */
+                memset(buf, 0, sizeof(buf));
+            }
+            else{
+                /* do nothing */
+            }
+            FD_SET(fd, &socket_set);
+            timeout.tv_sec = TIMEOUT_SEC;
+            timeout.tv_usec = TIMEOUT_USEC;
+        }
+        else{
+            FD_SET(fd, &socket_set);
+            timeout.tv_sec = TIMEOUT_SEC;
+            timeout.tv_usec = TIMEOUT_USEC;
+        }
     }
 }
 
@@ -251,7 +254,9 @@ static int WriteFiles(int number_files, char **files_names, char *buffer){
             fprintf(stderr, "Error: %s could not be opened", files_names[i+optind]);
             ret = -1;
         }
+
         fprintf(filed, buffer);
+
         if(fclose(filed) < 0){
             fprintf(stderr, "Error: %s could not be closed", files_names[i+optind]);
             ret = -1;
@@ -280,46 +285,46 @@ static void MostRepeatedLog(char *file_name){
     char buf_old[BUFLEN] = {0};
     char buf_sort[100] = {0};
     struct most_repeated{
-	char log_message[BUFLEN];
-	int times;
+        char log_message[BUFLEN];
+        int times;
     } log_most_rep;
 
     if((fd = fopen(file_name, "r")) == NULL){
-	fprintf(stderr, "Error: %s could not be opened", file_name);
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "Error: %s could not be opened", file_name);
+        exit(EXIT_FAILURE);
     }
 
     if((temp1 = fopen(TEMP1_FILE_PATH, "w")) == NULL){
-	fprintf(stderr, "Error: %s could not be opened", TEMP1_FILE_PATH);
-	fclose(fd);
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "Error: %s could not be opened", TEMP1_FILE_PATH);
+        fclose(fd);
+        exit(EXIT_FAILURE);
     }
 
     if((temp2 = fopen(TEMP2_FILE_PATH, "w")) == NULL){
-	fprintf(stderr, "Error: %s could not be opened", TEMP2_FILE_PATH);
-	fclose(fd);
-	fclose(temp1);
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "Error: %s could not be opened", TEMP2_FILE_PATH);
+        fclose(fd);
+        fclose(temp1);
+        exit(EXIT_FAILURE);
     }
 
     /* Parsing of rows avoiding the date field (DATE_LOG_LEN offset) */
     while(fgets(buf, BUFLEN, fd) != NULL){
-	fputs(buf+DATE_LOG_LEN, temp2);
+        fputs(buf+DATE_LOG_LEN, temp2);
     }
 
     if(fclose(fd) < 0){
-	fprintf(stderr, "Error: %s could not be closed", file_name);
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "Error: %s could not be closed", file_name);
+        exit(EXIT_FAILURE);
     }
 
     if(fclose(temp1) < 0){
-	fprintf(stderr, "Error: %s could not be closed", TEMP1_FILE_PATH);
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "Error: %s could not be closed", TEMP1_FILE_PATH);
+        exit(EXIT_FAILURE);
     }
 
     if(fclose(temp2) < 0){
-	fprintf(stderr, "Error: %s could not be closed", TEMP2_FILE_PATH);
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "Error: %s could not be closed", TEMP2_FILE_PATH);
+        exit(EXIT_FAILURE);
     }
 
     /* Create command for sorting */
@@ -329,8 +334,8 @@ static void MostRepeatedLog(char *file_name){
     strcat(buf_sort, TEMP1_FILE_PATH);
 
     if(system(buf_sort) < 0){
-	perror("Error: system call failed");
-	exit(EXIT_FAILURE);
+        perror("Error: system call failed");
+        exit(EXIT_FAILURE);
     }
 
     if(remove(TEMP2_FILE_PATH) < 0){
@@ -338,8 +343,8 @@ static void MostRepeatedLog(char *file_name){
     }
 
     if((temp1 = fopen(TEMP1_FILE_PATH, "r")) == NULL){
-	fprintf(stderr, "Error: %s could not be opened", TEMP1_FILE_PATH);
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "Error: %s could not be opened", TEMP1_FILE_PATH);
+        exit(EXIT_FAILURE);
     }
 
     /* Initiating structure */
@@ -347,32 +352,32 @@ static void MostRepeatedLog(char *file_name){
     memset(log_most_rep.log_message, 0, sizeof(log_most_rep.log_message));
 
     while(fgets(buf, BUFLEN, temp1) != NULL){
-	if(buf_old[0] == '\0'){
-	    strcpy(buf_old, buf);
-	}
-	else{
-	    if(strcmp(buf_old, buf) == 0){
-	        count++;
-	    }
-	    else{
-		if(count > log_most_rep.times){
-		    log_most_rep.times = count;
-		    strcpy(log_most_rep.log_message, buf_old);
-		}
-		strcpy(buf_old, buf);
-		count = 1;
-	    }
-	}
+        if(buf_old[0] == '\0'){
+            strcpy(buf_old, buf);
+        }
+        else{
+            if(strcmp(buf_old, buf) == 0){
+                count++;
+            }
+            else{
+                if(count > log_most_rep.times){
+                    log_most_rep.times = count;
+                    strcpy(log_most_rep.log_message, buf_old);
+                }
+                strcpy(buf_old, buf);
+                count = 1;
+            }
+        }
     }
     /* Checking the last log message read */
     if(count > log_most_rep.times){
-	log_most_rep.times = count;
-	strcpy(log_most_rep.log_message, buf_old);
+        log_most_rep.times = count;
+        strcpy(log_most_rep.log_message, buf_old);
     }
 
     if(fclose(temp1) < 0){
-	fprintf(stderr, "Error: %s could not be closed", TEMP1_FILE_PATH);
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "Error: %s could not be closed", TEMP1_FILE_PATH);
+        exit(EXIT_FAILURE);
     }
 
     if(remove(TEMP1_FILE_PATH) < 0){
