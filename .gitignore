@@ -1,3 +1,7 @@
 # Swap files
 ###################
 *.swp
+
+# Build dir must be generated when repo is cloned
+###################
+build/
